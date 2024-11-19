@@ -1,0 +1,77 @@
+<!-- PayPal Smart Button Integration -->
+<div id="paypal-button-container"></div>
+
+<!-- Include PayPal SDK -->
+<script src="https://www.paypal.com/sdk/js?client-id=AYbYPzVPfOA5BC6N25b1YEPn9zA-EZcUUuAzW504jFkFOKPh0pMMd3XBWPTnTYleShSRk0BqDJGl1abv&currency=USD"></script>
+
+<script>
+  // Detect page type using Shopify Liquid variables
+   var isProductPage = typeof {{ product | json }} !== "undefined"; // Check if product data exists
+  var isCartPage = typeof {{ cart | json }} !== "undefined"; // Check if cart data exists
+
+  // Initialize price, description, and currency
+  var price = "0.00"; // Default price
+  var description = ""; // Default description
+  var currency = "{{ shop.currency }}"; // Shopify store currency
+
+  // Handle Product Page
+  if (isProductPage) {
+    price = "{{ product.price | divided_by: 100 | round: 2 }}"; // Convert cents to dollars
+    description = "{{ product.title }}"; // Product title
+    console.log("Price: ", price);
+console.log("Description: ", description);
+  }
+
+  // Handle Cart Page
+  if (isCartPage) {
+    price = "{{ cart.total_price | divided_by: 100 | round: 2 }}"; // Total cart price
+
+    // Build cart description (itemized list)
+    var cartItems = [];
+    {% for item in cart.items %}
+    cartItems.push("{{ item.quantity }}x {{ item.product.title }} ({{ item.final_line_price | money_without_currency }})");
+    {% endfor %}
+    description = cartItems.join(", "); // Concatenate itemized list
+    console.log("Price: ", price);
+console.log("Description: ", description);
+  }
+
+  // Render the PayPal Smart Button
+  paypal.Buttons({
+    style: {
+      layout: 'vertical', // Options: vertical or horizontal
+      color: 'gold', // Options: gold, blue, silver, black
+      shape: 'rect', // Options: pill or rect
+      label: 'paypal' // Options: checkout, pay, paypal
+    },
+    createOrder: function(data, actions) {
+      // Create the order with the calculated price and description
+      return actions.order.create({
+        purchase_units: [{
+          amount: {
+            value: price // Dynamic price
+          },
+          description: description // Dynamic description
+        }]
+      });
+    },
+    onApprove: function(data, actions) {
+      // Capture the payment after approval
+      return actions.order.capture().then(function(details) {
+        alert('Transaction completed by ' + details.payer.name.given_name);
+
+        // Redirect to a Thank You or Success page
+        window.location.href = '/thank-you';
+      });
+    },
+    onCancel: function(data) {
+      // Handle transaction cancellation
+      alert('Transaction was canceled.');
+    },
+    onError: function(err) {
+      // Handle errors
+      console.error('An error occurred:', err);
+      alert('An error occurred during the transaction. Please try again.');
+    }
+  }).render('#paypal-button-container'); // Render the button into this div
+</script>
